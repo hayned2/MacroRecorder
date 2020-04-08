@@ -13,14 +13,17 @@ fileExtension = ".mr"
 
 class Recording:
     
+    # Initialize the recording with no events and a lastEventTime variable
     def __init__(self):
         self.events = []
         self.lastEventTime = time.time()
         
+    # Reset the recording back to no events
     def ClearRecording(self):
         self.events = []
         self.lastEventTime = time.time()
         
+    # Used when loading a recording from text
     def AddEventFromText(self, text):
         parameters = (text.strip()).split(" ")
         if len(parameters) == 5:
@@ -28,6 +31,7 @@ class Recording:
         else:
             self.AddKeyboardEventFromText(parameters)    
     
+    # Used when adding a keyboard event. delayTime is only provided if adding from text
     def AddKeyboardEvent(self, key, pressed, delayTime = None):
         eventTime = time.time()
         if delayTime == None:
@@ -36,6 +40,7 @@ class Recording:
         event = KeyboardEvent(delayTime, key, pressed)
         self.events.append(event)
     
+    # Used when adding a keyboard event from text
     def AddKeyboardEventFromText(self, params):
         [delay, key, pressed] = params
         delay = float(delay)
@@ -43,6 +48,7 @@ class Recording:
         pressed = True if pressed == "True" else False
         self.AddKeyboardEvent(key, pressed, delay)
         
+    # Used when adding a mouse event. delayTime is only provided if adding from text
     def AddMouseEvent(self, button, pressed, x, y, delayTime = None):
         eventTime = time.time()
         if delayTime == None:
@@ -51,6 +57,7 @@ class Recording:
         event = MouseEvent(delayTime, button, pressed, x, y)
         self.events.append(event)
         
+    # Used when adding a keyboard event from text
     def AddMouseEventFromText(self, params):
         [delay, button, pressed, x, y] = params
         delay = float(delay)
@@ -59,10 +66,16 @@ class Recording:
         x = int(x)
         y = int(y)
         self.AddMouseEvent(button, pressed, x, y, delay)
-        
+      
+    # Return the list of events  
     def GetEvents(self):
         return self.events
     
+    # Return a specific event
+    def GetEvent(self, which):
+        return self.events[which]
+    
+    # Emulate the mouse and keyboard to recreate the recorded events
     def Playback(self):
         pressedKeys = []
         pressedMouse = []
@@ -83,11 +96,14 @@ class Recording:
                     pressedMouse.append(button)
                 elif not event.GetButtonPressed() and button in pressedMouse:
                     pressedMouse.remove(button)
+                    
+        # Make sure that the mouse and keyboard doesn't leave anything held down
         for key in pressedKeys:
             keyboard.release(key)
         for button in pressedMouse:
             mouse.release(button)
-        
+    
+    # Print the events in the recording  
     def PrintRecording(self):
         counter = 0
         for event in self.GetEvents():
@@ -101,38 +117,46 @@ class KeyboardEvent:
     key = None
     pressed = False
     
+    # Initialize the keyboard event with a delayTime, which key, and whether it was pressed or released
     def __init__(self, delayTime, key, pressed):
         self.delayTime = delayTime
         self.key = key
         self.pressed = pressed
         
+    # Return the delayTime
     def GetDelayTime(self):
         return self.delayTime
     
+    # Return the key
     def GetKey(self):
         return self.key
-    
+     # Return whether the key was pressed or released
     def GetKeyPressed(self):
         return self.pressed
     
+    # Return whether the key is a pynput.Key or pynput.KeyCode
     def GetKeyType(self):
         return type(self.key)
     
+    # Return the text label for the key
     def GetKeyLabel(self):
         if self.GetKeyType() == pynput.keyboard.KeyCode:
             return self.GetKey().char
         return key_translation.keyToText[self.key]
     
+    # Given a virtual keyboard, replay the keyboard event
     def Playback(self, keyboard):
         time.sleep(self.GetDelayTime())
         if self.GetKeyPressed():
             keyboard.press(self.GetKey())
         else:
             keyboard.release(self.GetKey())
-            
+           
+    # Turn the event into text for saving to a file 
     def GetFileText(self):
         return " ".join([str(self.GetDelayTime()), self.GetKeyLabel(), str(self.GetKeyPressed())]) + "\n" 
     
+    # Print the contents of the event
     def PrintEvent(self):
         print("Delay Time:", self.GetDelayTime())
         print("Key:", self.GetKeyLabel())
@@ -145,27 +169,34 @@ class MouseEvent:
     pressed = False
     position = (0, 0)
     
+    # Initialize the mouse event with a delayTime, which button, whether it was pressed or released, and the position
     def __init__(self, delayTime, button, pressed, x, y):
         self.delayTime = delayTime
         self.button = button
         self.pressed = pressed
         self.position = (x, y)
         
+    # Return the delay time
     def GetDelayTime(self):
         return self.delayTime
     
+    # Return which button
     def GetButton(self):
         return self.button
     
+    # Return whether the button was pressed or released
     def GetButtonPressed(self):
         return self.pressed
     
+    # Return the position of the event
     def GetPosition(self):
         return self.position
     
+    # Return the text label for the button
     def GetButtonLabel(self):
         return key_translation.buttonToText[self.button]
     
+    # Given a virtual mouse, replay the mouse event
     def Playback(self, mouse):
         (startingX, startingY) = mouse.position
         dx = (self.GetPosition()[0] - startingX) / movementFraction
@@ -181,9 +212,11 @@ class MouseEvent:
         else:
             mouse.release(self.GetButton())
             
+    # Turn the event into text for saving to a file
     def GetFileText(self):
         return " ".join([str(self.GetDelayTime()), self.GetButtonLabel(), str(self.GetButtonPressed()), str(self.GetPosition()[0]), str(self.GetPosition()[1])]) + "\n"
     
+    # Print the contents of the event
     def PrintEvent(self):
         print("Delay Time:", self.GetDelayTime())
         print("Button:", self.GetButtonLabel())
@@ -192,25 +225,31 @@ class MouseEvent:
 
 class Dialog:
     
-    # self.loadedRecording
-    # self.window
-    # self.gridContainer
-    # self.gridCanvas
-    # self.gridScrollbar
-    # self.gridScrollableFrame
-    # self.recordingGrid
-    # self.buttonFrame
-    # self.recordButton
-    # self.playButton
-    # self.saveButton
-    # self.loadButton
+    # self.loadedRecording = macro.Recording
+    # self.window = tkinter.TK
+    # self.gridContainer = tkinter.Frame
+    # self.gridCanvas = tkinter.Canvas
+    # self.gridScrollbar = tkinter.Scrollbar
+    # self.gridScrollableFrame = tkinter.Frame
+    # self.recordingGrid = [][]tkinter.Entry
+    # self.recordingGridLabels = []tkinter.Label
+    # self.buttonFrame = tkinter.Frame
+    # self.recordButton = tkinter.Button
+    # self.playButton = tkinter.Button
+    # self.saveButton = tkinter.Button
+    # self.loadButton = tkinter.Button
     
+    # Initialize the dialog
     def __init__(self):
         
+        # Initialize the loaded recording as an empty recording
         self.loadedRecording = Recording()
         
+        # Create the main dialog window
         self.window = tkinter.Tk()
         self.window.title("Do not believe everything you see when you're talking to me, Scam Likely~~") 
+        
+        # Create the frame that will hold the grid displaying the recording
         self.gridContainer = tkinter.Frame(self.window)
         self.gridCanvas = tkinter.Canvas(self.gridContainer)
         self.gridScrollbar = tkinter.Scrollbar(self.gridContainer, orient = "vertical", command = self.gridCanvas.yview)
@@ -218,14 +257,22 @@ class Dialog:
         self.gridScrollableFrame.bind("<Configure>", lambda e: self.gridCanvas.configure(scrollregion = self.gridCanvas.bbox("all")))
         self.gridCanvas.create_window((0, 0), window = self.gridScrollableFrame, anchor = "nw")
         self.gridCanvas.configure(yscrollcommand = self.gridScrollbar.set)
-        self.recordingGrid = []
         
+        # Create the grid to display the recording
+        self.recordingGrid = []
         width = 4
         height = 100
-        for row in range(height):
+        gridLabels = ["Type", "Label", "Pressed", "Delay"]
+        self.recordingGridLabels = []
+        for x in range(len(gridLabels)):
+            tkLabel = tkinter.Label(self.gridScrollableFrame, text = gridLabels[x])
+            tkLabel.grid(column = x, row = 0)
+            self.recordingGridLabels.append(tkLabel)
+        
+        for row in range(1, height):
             recordingRow = []
             for column in range(width):
-                text = tkinter.Entry(scrollableFrame, width = 15, state = "normal")
+                text = tkinter.Entry(self.gridScrollableFrame, width = 15, state = "normal")
                 text.grid(column = column, row = row)
                 recordingRow.append(text)
             self.recordingGrid.append(recordingRow)
@@ -234,162 +281,151 @@ class Dialog:
         self.gridCanvas.pack(side = "left", fill = "both", expand = True)
         self.gridScrollbar.pack(side = "right", fill = "y")
         
-        window.update()
+        # Update the window so the other objects are aware of the grid's shape
+        self.window.update()
         
+        # Add a frame to hold the main buttons
         self.buttonFrame = tkinter.Frame(self.window, width = self.gridContainer.winfo_width(), height = self.gridContainer.winfo_height())
         self.buttonFrame.grid(column = 1, row = 0)      
         
-        self.recordButton = tkinter.Button(self.buttonFrame, text = "Record", command = lambda: BeginRecording(self.loadedRecording))
+        # Add the record button, which will begin a recording
+        self.recordButton = tkinter.Button(self.buttonFrame, text = "Record", command = self.BeginRecording)
         self.recordButton.grid(column = 0, row = 0)
         
-        self.playButton = tkinter.Button(self.buttonFrame, text = "Playback", command = lambda: self.loadedRecording.Playback())
+        # Add the playback button, which will replay the current recording
+        self.playButton = tkinter.Button(self.buttonFrame, text = "Playback", command = self.PlaybackRecording)
         self.playButton.grid(column = 1, row = 0)
         
-        self.saveButton = tkinter.Button(self.buttonFrame, text = "Save", command = lambda: SaveRecording(self.loadedRecording))
+        # Add the save button, which will save the current recording to a text file
+        self.saveButton = tkinter.Button(self.buttonFrame, text = "Save", command = self.SaveRecording)
         self.saveButton.grid(column = 0, row = 1)
         
-        self.loadButton = tkinter.Button(self.buttonFrame, text = "Load", command = lambda: LoadRecording(self.loadedRecording))
+        # Add the load button, which will read a text file into the loaded recording
+        self.loadButton = tkinter.Button(self.buttonFrame, text = "Load", command = self.LoadRecording)
         self.loadButton.grid(column = 1, row = 1)        
 
-        # Records mouse and keyboard clicks into an events array and returns it
-        def BeginRecording(self):
-            print("Beginning recording, press 'q' to stop")
-            self.loadedRecording.ClearRecording()
-            
-            pressedMouse = []
-            pressedKeys = []
-            
-            # Function for tracking a keyboard button press
-            def on_press(key):
-                nonlocal pressedKeys
-                if key in pressedKeys:
-                    return True
-                pressedKeys.append(key)
-                return RegisterKeystroke(key, True)
-                
-            # Function for tracking a keyboard button release
-            def on_release(key):
-                nonlocal pressedKeys
-                if key not in pressedKeys:
-                    return True
-                pressedKeys.remove(key)
-                return RegisterKeystroke(key, False)
-                
-            # Function for recording a keyboard event
-            def RegisterKeystroke(key, pressed):
-                if type(key) == pynput.keyboard.KeyCode and key.char == 'q':
-                    return False
-                nonlocal recording
-                self.loadedRecording.AddKeyboardEvent(key, pressed)
+    # Records mouse and keyboard clicks into the recording object
+    def BeginRecording(self):
+        print("Beginning recording, press 'q' to stop")
+        self.loadedRecording.ClearRecording()
+        
+        pressedMouse = []
+        pressedKeys = []
+        
+        # Function for tracking a keyboard button press
+        def on_press(key):
+            nonlocal pressedKeys
+            if key in pressedKeys:
                 return True
+            pressedKeys.append(key)
+            return RegisterKeystroke(key, True)
             
-            # Function for recording a mouse button click
-            def on_click(x, y, button, pressed):
-                nonlocal pressedMouse, recording
-                if pressed:
-                    if button not in pressedMouse:
-                        pressedMouse.append(button)
-                    else:
-                        return True
+        # Function for tracking a keyboard button release
+        def on_release(key):
+            nonlocal pressedKeys
+            if key not in pressedKeys:
+                return True
+            pressedKeys.remove(key)
+            return RegisterKeystroke(key, False)
+            
+        # Function for recording a keyboard event
+        def RegisterKeystroke(key, pressed):
+            if type(key) == pynput.keyboard.KeyCode and key.char == 'q':
+                return False
+            self.loadedRecording.AddKeyboardEvent(key, pressed)
+            return True
+        
+        # Function for recording a mouse button click
+        def on_click(x, y, button, pressed):
+            nonlocal pressedMouse
+            if pressed:
+                if button not in pressedMouse:
+                    pressedMouse.append(button)
                 else:
-                    if button in pressedMouse:
-                        pressedMouse.remove(button)
-                    else:
-                        return True
-                self.loadedRecording.AddMouseEvent(button, pressed, x, y)
-                  
-            
-            # Begins the recording here, stops when on_click or on_press returns False
-            with pynput.mouse.Listener(on_click = on_click) as listener:
-                with pynput.keyboard.Listener(on_press = on_press, on_release = on_release) as listener:
-                    listener.join()
-                    
-            print("Recording has been completed")
- 
-        def SaveRecording(self):    
-            if len(self.loadedRecording.GetEvents()) == 0:
-                print("There is no recorded program")
-                return
-            name = input("Please name the recording: ")
-            if os.path.exists(name + fileExtension):
-                fileID = 1
-                while os.path.exists(name + "_" + str(fileID) + fileExtension):
-                    fileID += 1
-                name = name + "_" + str(fileID)
-            file = open(name + fileExtension, "x")
-            for event in self.loadedRecording.GetEvents():
-                file.write(event.GetFileText())
-            file.close()
-
-        def LoadRecording(self):  
-            name = input("Load which recording?: ")
-            if not os.path.exists(name + fileExtension):
-                print("Could not find recorded program named", name)
-                return
-            self.loadedRecording.ClearRecording()
-            file = open(name + fileExtension, "r")
-            readEvents = file.readlines()
-            for event in readEvents:
-                self.loadedRecording.AddEventFromText(event)
-            file.close()
-    
-def ReplaceText(field, text):
-    field.delete(0, END)
-    field.insert(0, text)
-    
-def PopulateTextGrid(grid, events):
-    for event in events:
-        for row in grid:
-            if type(event) == KeyboardEvent:
-                ReplaceText(row[0], "Keyboard")
-                ReplaceText(row[1], event.GetKeyLabel())
-                ReplaceText(row[2], event.GetKeyPressed())
-                ReplaceText(row[3], event.GetDelayTime())
+                    return True
             else:
-                ReplaceText(row[0], "Mouse")
-                ReplaceText(row[1], event.GetButtonLabel())
-                ReplaceText(row[2], str(event.GetButtonPressed()) + str(event.GetPosition()))
-                ReplaceText(row[3], event.GetDelayTime()) 
+                if button in pressedMouse:
+                    pressedMouse.remove(button)
+                else:
+                    return True
+            self.loadedRecording.AddMouseEvent(button, pressed, x, y)
+              
+        
+        # Begins the recording here, stops when on_click or on_press returns False
+        with pynput.mouse.Listener(on_click = on_click) as listener:
+            with pynput.keyboard.Listener(on_press = on_press, on_release = on_release) as listener:
+                listener.join()
+                
+        self.RecordingToGrid()
+                
+        print("Recording has been completed")
+      
+    # Begin playback of the current recording  
+    def PlaybackRecording(self):
+        print("Beginning playback of current recording")
+        self.loadedRecording.Playback()
+        print("Finished playback of current recording")
+
+    # Save the current recording to a text file
+    def SaveRecording(self):
+        print("Beginning save of current recording")
+        if len(self.loadedRecording.GetEvents()) == 0:
+            print("There is no recorded program")
+            return
+        name = input("Please name the recording: ")
+        if os.path.exists(name + fileExtension):
+            fileID = 1
+            while os.path.exists(name + "_" + str(fileID) + fileExtension):
+                fileID += 1
+            name = name + "_" + str(fileID)
+        file = open(name + fileExtension, "x")
+        for event in self.loadedRecording.GetEvents():
+            file.write(event.GetFileText())
+        file.close()
+        print("Finished saving recording as", name + fileExtension)
+
+    # Read a text file into the current recording
+    def LoadRecording(self):
+        name = input("Load which recording?: ")
+        if not os.path.exists(name + fileExtension):
+            print("Could not find recorded program named", name)
+            return
+        self.loadedRecording.ClearRecording()
+        file = open(name + fileExtension, "r")
+        readEvents = file.readlines()
+        for event in readEvents:
+            self.loadedRecording.AddEventFromText(event)
+        file.close()
+        self.RecordingToGrid()
+        print("Successfully loaded recording named", name + fileExtension)
+    
+    # Replace the text of a tkinter.Entry (field) with new (text)
+    def ReplaceText(self, field, text):
+        field.delete(0, tkinter.END)
+        field.insert(0, text)
+    
+    # Populate the recording grid in the UI with the loaded recording's events
+    def RecordingToGrid(self):
+        for x in range(len(self.loadedRecording.GetEvents())):
+            event = self.loadedRecording.GetEvent(x)
+            row = self.recordingGrid[x]
+            if type(event) == KeyboardEvent:
+                self.ReplaceText(row[0], "Keyboard")
+                self.ReplaceText(row[1], event.GetKeyLabel())
+                self.ReplaceText(row[2], "Down" if event.GetKeyPressed() else "Up")
+                self.ReplaceText(row[3], event.GetDelayTime())
+            else:
+                self.ReplaceText(row[0], "Mouse")
+                self.ReplaceText(row[1], event.GetButtonLabel())
+                self.ReplaceText(row[2], ("Down " if event.GetButtonPressed() else "Up ") + str(event.GetPosition()))
+                self.ReplaceText(row[3], event.GetDelayTime()) 
 
 if __name__ == "__main__":
     
-    ctypes.windll.shcore.SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE)    
-    loadedRecording = Recording()
+    ctypes.windll.shcore.SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE)
     
-    
-    """
-    
-    window.geometry("500x300")
-    label = tkinter.Label(window, text = "Hi hungry, I'm dad", font = ("Impact", 50))
-    label.grid(column = 0, row = 0)
-    
-    text = tkinter.Entry(window, width = 30, state = "normal")
-    text.bind("<Return>", lambda _: SenpaiTouchedMe(label, text))
-    text.grid(column = 0, row = 2)
-    text.focus()
-    
-    button = tkinter.Button(window, text = "Touch me, senpai", font = ("Comic Sans MS", 30), bg = "black", fg="blue", command = lambda: SenpaiTouchedMe(label, text))
-    button.grid(column = 0, row = 1)
-    
-    combo = ttk.Combobox(window)
-    combo["values"] = ("doo", "doo doo", "do do", "do do do do")
-    combo.current(1)
-    combo.grid(column = 1, row = 0)
-    
-    checkState = tkinter.BooleanVar()
-    checkState.set(True)
-    check = ttk.Checkbutton(window, text = "Pick me mommy", var = checkState)
-    check.grid(column = 1, row = 1)
-    
-    radio = ttk.Radiobutton(window, text = "No, pick me", value = 1)
-    radio2 = ttk.Radiobutton(window, text = "But I'm the best one", value = 2)
-    radio3 = ttk.Radiobutton(window, text = "I am the best tho", value = 3)
-    radio.grid(column = 2, row = 0)
-    radio2.grid(column = 2, row = 1)
-    radio3.grid(column = 2, row = 2)
-    """
-    
-    window.mainloop()
+    dialog = Dialog()
+    dialog.window.mainloop()
     
     exit(0)
 
