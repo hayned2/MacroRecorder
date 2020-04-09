@@ -4,6 +4,7 @@ import os
 import pynput
 import tkinter
 from tkinter import ttk
+from tkinter import filedialog
 
 import key_translation
 
@@ -368,36 +369,29 @@ class Dialog:
 
     # Save the current recording to a text file
     def SaveRecording(self):
-        print("Beginning save of current recording")
         if len(self.loadedRecording.GetEvents()) == 0:
-            print("There is no recorded program")
+            print("Nothing to save")
             return
-        name = input("Please name the recording: ")
-        if os.path.exists(name + fileExtension):
-            fileID = 1
-            while os.path.exists(name + "_" + str(fileID) + fileExtension):
-                fileID += 1
-            name = name + "_" + str(fileID)
-        file = open(name + fileExtension, "x")
+        filename = filedialog.asksaveasfilename(filetypes = [("MacroRecorder files", "*" + fileExtension)])
+        file = open(filename, "w")
         for event in self.loadedRecording.GetEvents():
             file.write(event.GetFileText())
         file.close()
-        print("Finished saving recording as", name + fileExtension)
+        print("Finished saving recording", filename)
 
     # Read a text file into the current recording
     def LoadRecording(self):
-        name = input("Load which recording?: ")
-        if not os.path.exists(name + fileExtension):
-            print("Could not find recorded program named", name)
+        filename = filedialog.askopenfilename(filetypes = [("MacroRecorder files", "*" + fileExtension)])
+        if filename == "":
             return
         self.loadedRecording.ClearRecording()
-        file = open(name + fileExtension, "r")
+        file = open(filename, "r")
         readEvents = file.readlines()
         for event in readEvents:
             self.loadedRecording.AddEventFromText(event)
         file.close()
         self.RecordingToGrid()
-        print("Successfully loaded recording named", name + fileExtension)
+        print("Successfully loaded recording", filename)
     
     # Replace the text of a tkinter.Entry (field) with new (text)
     def ReplaceText(self, field, text):
