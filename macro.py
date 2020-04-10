@@ -239,6 +239,7 @@ class Dialog:
     # self.playButton = tkinter.Button
     # self.saveButton = tkinter.Button
     # self.loadButton = tkinter.Button
+    # self.clearButton = tkinter.Button
     
     # Initialize the dialog
     def __init__(self):
@@ -252,7 +253,7 @@ class Dialog:
         
         # Create the frame that will hold the grid displaying the recording
         self.gridContainer = tkinter.Frame(self.window)
-        self.gridCanvas = tkinter.Canvas(self.gridContainer)
+        self.gridCanvas = tkinter.Canvas(self.gridContainer, width = 500)
         self.gridScrollbar = tkinter.Scrollbar(self.gridContainer, orient = "vertical", command = self.gridCanvas.yview)
         self.gridScrollableFrame = tkinter.Frame(self.gridCanvas)
         self.gridScrollableFrame.bind("<Configure>", lambda e: self.gridCanvas.configure(scrollregion = self.gridCanvas.bbox("all")))
@@ -261,8 +262,6 @@ class Dialog:
         
         # Create the grid to display the recording
         self.recordingGrid = []
-        width = 4
-        height = 100
         gridLabels = ["Type", "Label", "Pressed", "Delay"]
         self.recordingGridLabels = []
         for x in range(len(gridLabels)):
@@ -270,13 +269,8 @@ class Dialog:
             tkLabel.grid(column = x, row = 0)
             self.recordingGridLabels.append(tkLabel)
         
-        for row in range(1, height):
-            recordingRow = []
-            for column in range(width):
-                text = tkinter.Entry(self.gridScrollableFrame, width = 15, state = "normal")
-                text.grid(column = column, row = row)
-                recordingRow.append(text)
-            self.recordingGrid.append(recordingRow)
+        # Initialize the grid with one empty row
+        self.ResizeGrid(1)
         
         self.gridContainer.grid(column = 0, row = 0)
         self.gridCanvas.pack(side = "left", fill = "both", expand = True)
@@ -303,7 +297,15 @@ class Dialog:
         
         # Add the load button, which will read a text file into the loaded recording
         self.loadButton = tkinter.Button(self.buttonFrame, text = "Load", command = self.LoadRecording)
-        self.loadButton.grid(column = 1, row = 1)        
+        self.loadButton.grid(column = 1, row = 1)
+        
+        # Add the clear button, which will clear the current recording
+        self.clearButton = tkinter.Button(self.buttonFrame, text = "Clear", command = self.ClearRecording)
+        self.clearButton.grid(column = 0, row = 2)
+        
+        # Add the add row button, which will add an additional row to the current recording grid
+        self.addRowButton = tkinter.Button(self.buttonFrame, text = "Add Row", command = self.AddRow)
+        self.addRowButton.grid(column = 1, row = 2)
 
     # Records mouse and keyboard clicks into the recording object
     def BeginRecording(self):
@@ -398,8 +400,32 @@ class Dialog:
         field.delete(0, tkinter.END)
         field.insert(0, text)
     
+    # Resize the recording grid to the correct number of rows
+    def ResizeGrid(self, rows):
+        for row in self.recordingGrid:
+            for cell in row:
+                cell.destroy()
+        self.recordingGrid.clear()
+        for row in range(rows):
+            recordingRow = []
+            for column in range(4):
+                text = tkinter.Entry(self.gridScrollableFrame, width = 20, state = "normal")
+                text.grid(column = column, row = row + 1)
+                recordingRow.append(text)
+            self.recordingGrid.append(recordingRow)
+    
+    # Add another row without modifying the rest of the recording grid
+    def AddRow(self):
+        row = []
+        for column in range(4):
+            text = tkinter.Entry(self.gridScrollableFrame, width = 20, state = "normal")
+            text.grid(column = column, row = len(self.recordingGrid) + 1)
+            row.append(text)
+        self.recordingGrid.append(row)
+    
     # Populate the recording grid in the UI with the loaded recording's events
     def RecordingToGrid(self):
+        self.ResizeGrid(len(self.loadedRecording.GetEvents()))
         for x in range(len(self.loadedRecording.GetEvents())):
             event = self.loadedRecording.GetEvent(x)
             row = self.recordingGrid[x]
@@ -413,6 +439,11 @@ class Dialog:
                 self.ReplaceText(row[1], event.GetButtonLabel())
                 self.ReplaceText(row[2], ("Down " if event.GetButtonPressed() else "Up ") + str(event.GetPosition()))
                 self.ReplaceText(row[3], event.GetDelayTime()) 
+    # Clear the current recording
+    def ClearRecording(self):
+        self.loadedRecording.ClearRecording()
+        self.ResizeGrid(1)
+
 
 if __name__ == "__main__":
     
