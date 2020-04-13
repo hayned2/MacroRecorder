@@ -249,39 +249,32 @@ class Dialog:
         
         # Create the main dialog window
         self.window = tkinter.Tk()
-        self.window.title("Do not believe everything you see when you're talking to me, Scam Likely~~") 
+        self.window.title("Do not believe everything you see when you're talking to me, Scam Likely~~")
         
-        # Create the frame that will hold the grid displaying the recording
-        self.gridContainer = tkinter.Frame(self.window)
-        self.gridCanvas = tkinter.Canvas(self.gridContainer, width = 500)
-        self.gridScrollbar = tkinter.Scrollbar(self.gridContainer, orient = "vertical", command = self.gridCanvas.yview)
-        self.gridScrollableFrame = tkinter.Frame(self.gridCanvas)
-        self.gridScrollableFrame.bind("<Configure>", lambda e: self.gridCanvas.configure(scrollregion = self.gridCanvas.bbox("all")))
-        self.gridCanvas.create_window((0, 0), window = self.gridScrollableFrame, anchor = "nw")
-        self.gridCanvas.configure(yscrollcommand = self.gridScrollbar.set)
+        self.recordingGrid = ttk.Treeview(self.window, columns = ("#", "Type", "Label", "Pressed", "Delay"), selectmode = "browse", height = 20)
+        self.recordingGrid.column("#0", width = 0, stretch = tkinter.NO)
+        self.recordingGrid.column("#1", width = 30, stretch = tkinter.NO, anchor = tkinter.CENTER)
+        self.recordingGrid.column("#2", width = 100, stretch = tkinter.NO, anchor = tkinter.CENTER)
+        self.recordingGrid.column("#3", width = 100, stretch = tkinter.NO, anchor = tkinter.CENTER)
+        self.recordingGrid.column("#4", width = 100, stretch = tkinter.NO, anchor = tkinter.CENTER)
+        self.recordingGrid.column("#5", width = 100, stretch = tkinter.NO, anchor = tkinter.CENTER)
         
-        # Create the grid to display the recording
-        self.recordingGrid = []
-        gridLabels = ["Type", "Label", "Pressed", "Delay"]
-        self.recordingGridLabels = []
-        for x in range(len(gridLabels)):
-            tkLabel = tkinter.Label(self.gridScrollableFrame, text = gridLabels[x])
-            tkLabel.grid(column = x, row = 0)
-            self.recordingGridLabels.append(tkLabel)
+        self.recordingGrid.heading("#1", text = "#", anchor = tkinter.CENTER)
+        self.recordingGrid.heading("#2", text = "Type", anchor = tkinter.CENTER)
+        self.recordingGrid.heading("#3", text = "Label", anchor = tkinter.CENTER)
+        self.recordingGrid.heading("#4", text = "Pressed", anchor = tkinter.CENTER)
+        self.recordingGrid.heading("#5", text = "Delay", anchor = tkinter.CENTER)
         
-        # Initialize the grid with one empty row
-        self.ResizeGrid(1)
+        self.recordingGrid.grid(column = 1, row = 0)      
         
-        self.gridContainer.grid(column = 0, row = 0)
-        self.gridCanvas.pack(side = "left", fill = "both", expand = True)
-        self.gridScrollbar.pack(side = "right", fill = "y")
-        
-        # Update the window so the other objects are aware of the grid's shape
-        self.window.update()
+        self.recordingGridScrollbar = tkinter.Scrollbar(self.window, orient = "vertical", command = self.recordingGrid.yview)
+        self.recordingGridScrollbar.configure(command = self.recordingGrid.yview)
+        self.recordingGrid.configure(yscrollcommand = self.recordingGridScrollbar.set)
+        self.recordingGridScrollbar.grid(column = 2, row = 0, sticky = "NSW")
         
         # Add a frame to hold the main buttons
-        self.buttonFrame = tkinter.Frame(self.window, width = self.gridContainer.winfo_width(), height = self.gridContainer.winfo_height())
-        self.buttonFrame.grid(column = 1, row = 0)      
+        self.buttonFrame = tkinter.Frame(self.window, width = 500, height = 500)
+        self.buttonFrame.grid(column = 0, row = 0)
         
         # Add the record button, which will begin a recording
         self.recordButton = tkinter.Button(self.buttonFrame, text = "Record", command = self.BeginRecording)
@@ -395,54 +388,28 @@ class Dialog:
         self.RecordingToGrid()
         print("Successfully loaded recording", filename)
     
-    # Replace the text of a tkinter.Entry (field) with new (text)
-    def ReplaceText(self, field, text):
-        field.delete(0, tkinter.END)
-        field.insert(0, text)
-    
-    # Resize the recording grid to the correct number of rows
-    def ResizeGrid(self, rows):
-        for row in self.recordingGrid:
-            for cell in row:
-                cell.destroy()
-        self.recordingGrid.clear()
-        for row in range(rows):
-            recordingRow = []
-            for column in range(4):
-                text = tkinter.Entry(self.gridScrollableFrame, width = 20, state = "normal")
-                text.grid(column = column, row = row + 1)
-                recordingRow.append(text)
-            self.recordingGrid.append(recordingRow)
-    
     # Add another row without modifying the rest of the recording grid
-    def AddRow(self):
-        row = []
-        for column in range(4):
-            text = tkinter.Entry(self.gridScrollableFrame, width = 20, state = "normal")
-            text.grid(column = column, row = len(self.recordingGrid) + 1)
-            row.append(text)
-        self.recordingGrid.append(row)
+    def AddRow(self, info = ("test_type", "test_label", "test_pressed", "test_delay")):
+        (iType, iLabel, iPressed, iDelay) = info
+        numRows = len(self.recordingGrid.get_children())
+        self.recordingGrid.insert("", "end", text = "", values = (numRows, iType, iLabel, iPressed, iDelay), tags = ("odd" if numRows % 2 == 0 else "even",))
     
     # Populate the recording grid in the UI with the loaded recording's events
     def RecordingToGrid(self):
-        self.ResizeGrid(len(self.loadedRecording.GetEvents()))
+        self.ClearRecording()
         for x in range(len(self.loadedRecording.GetEvents())):
             event = self.loadedRecording.GetEvent(x)
-            row = self.recordingGrid[x]
             if type(event) == KeyboardEvent:
-                self.ReplaceText(row[0], "Keyboard")
-                self.ReplaceText(row[1], event.GetKeyLabel())
-                self.ReplaceText(row[2], "Down" if event.GetKeyPressed() else "Up")
-                self.ReplaceText(row[3], event.GetDelayTime())
+                self.AddRow(("Keyboard", event.GetKeyLabel(), "Down" if event.GetKeyPressed() else "Up", round(event.GetDelayTime(), 5)))
             else:
-                self.ReplaceText(row[0], "Mouse")
-                self.ReplaceText(row[1], event.GetButtonLabel())
-                self.ReplaceText(row[2], ("Down " if event.GetButtonPressed() else "Up ") + str(event.GetPosition()))
-                self.ReplaceText(row[3], event.GetDelayTime()) 
+                self.AddRow(("Mouse", event.GetButtonLabel(), ("Down " if event.GetButtonPressed() else "Up ") + str(event.GetPosition()), round(event.GetDelayTime(), 5)))
+        self.recordingGrid.tag_configure("odd", background = "#E8E8E8")
+        self.recordingGrid.tag_configure("even", background = "#DFDFDF")
+    
     # Clear the current recording
     def ClearRecording(self):
-        self.loadedRecording.ClearRecording()
-        self.ResizeGrid(1)
+        for row in self.recordingGrid.get_children():
+            self.recordingGrid.delete(row)
 
 
 if __name__ == "__main__":
