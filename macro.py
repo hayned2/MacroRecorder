@@ -251,7 +251,7 @@ class Dialog:
         self.window = tkinter.Tk()
         self.window.title("Do not believe everything you see when you're talking to me, Scam Likely~~")
         
-        self.recordingGrid = ttk.Treeview(self.window, columns = ("#", "Type", "Label", "Pressed", "Delay"), selectmode = "browse", height = 20)
+        self.recordingGrid = ttk.Treeview(self.window, columns = ("#", "Type", "Label", "Pressed", "Delay"), selectmode = "browse", height = 12)
         self.recordingGrid.column("#0", width = 0, stretch = tkinter.NO)
         self.recordingGrid.column("#1", width = 30, stretch = tkinter.NO, anchor = tkinter.CENTER)
         self.recordingGrid.column("#2", width = 100, stretch = tkinter.NO, anchor = tkinter.CENTER)
@@ -296,9 +296,51 @@ class Dialog:
         self.clearButton = tkinter.Button(self.buttonFrame, text = "Clear", command = self.ClearRecording)
         self.clearButton.grid(column = 0, row = 2)
         
+        # Add the event group box
+        self.eventInfo = tkinter.LabelFrame(self.buttonFrame, text = "Event Info", padx = 5, pady = 5)
+        self.eventInfo.grid(column = 0, row = 3, columnspan = 2)
+        
+        # Type
+        self.selectedType = tkinter.StringVar(self.eventInfo)
+        self.selectedType.set("Keyboard")
+        self.eventTypeLabel = tkinter.Label(self.eventInfo, text = "Type", width = 10)
+        self.eventTypeLabel.grid(column = 0, row = 0)
+        self.eventTypeBox = tkinter.OptionMenu(self.eventInfo, self.selectedType, "Keyboard", "Mouse", command = self.ShowHidePosition)
+        self.eventTypeBox.grid(column = 1, row = 0, columnspan = 4)
+        
+        # Label
+        self.labelLabel = tkinter.Label(self.eventInfo, text = "Label", width = 10)
+        self.labelLabel.grid(column = 0, row = 1)
+        self.selectLabel = tkinter.Label(self.eventInfo, text = "None", width = 10)
+        self.selectLabel.grid(column = 1, row = 1, columnspan = 4)
+        self.selectButton = tkinter.Button(self.eventInfo, text = "Change", command = self.ChangeSelectLabel, width = 10)
+        self.selectButton.grid(column = 5, row = 1)
+        
+        # Pressed
+        self.pressedValue = tkinter.BooleanVar(self.eventInfo)
+        self.pressedLabel = tkinter.Label(self.eventInfo, text = "Pressed", width = 10)
+        self.pressedLabel.grid(column = 0, row = 2)
+        self.pressedBox = tkinter.Checkbutton(self.eventInfo, variable = self.pressedValue)
+        self.pressedBox.grid(column = 1, row = 2, columnspan = 4)
+        
+        # Delay
+        self.delayLabel = tkinter.Label(self.eventInfo, text = "Delay")
+        self.delayLabel.grid(column = 0, row = 3)
+        self.delayEntry = tkinter.Entry(self.eventInfo, width = 16)
+        self.delayEntry.grid(column = 1, row = 3, columnspan = 4)
+        
+        # Position
+        self.positionLabel = tkinter.Label(self.eventInfo, text = "Position")
+        self.xLabel = tkinter.Label(self.eventInfo, text = "X")
+        self.xEntry = tkinter.Entry(self.eventInfo, width = 5)
+        self.yLabel = tkinter.Label(self.eventInfo, text = "Y")
+        self.yEntry = tkinter.Entry(self.eventInfo, width = 5)
+        self.pickPosButton = tkinter.Button(self.eventInfo, text = "Pick")
+        self.ShowHidePosition(self.selectedType.get())
+        
         # Add the add row button, which will add an additional row to the current recording grid
-        self.addRowButton = tkinter.Button(self.buttonFrame, text = "Add Row", command = self.AddRow)
-        self.addRowButton.grid(column = 1, row = 2)
+        self.addRowButton = tkinter.Button(self.eventInfo, text = "Add Row", command = self.AddRow)
+        self.addRowButton.grid(column = 0, row = 10)
 
     # Records mouse and keyboard clicks into the recording object
     def BeginRecording(self):
@@ -387,10 +429,56 @@ class Dialog:
         file.close()
         self.RecordingToGrid()
         print("Successfully loaded recording", filename)
-    
+        
+    def ChangeSelectLabel(self):
+        self.selectLabel.configure(text = "Listening...")
+        if self.selectedType.get() == "Keyboard":
+            def on_press(key):
+                if type(key) == pynput.keyboard.Key:
+                    self.selectLabel.configure(text = key_translation.keyToText[key])
+                else:
+                    if key.vk >= 96 and key.vk <= 111:
+                        self.selectLabel.configure(text = key_translation.charFromVK[key.vk])
+                    else:
+                        self.selectLabel.configure(text = key.char)
+                return False
+            listener = pynput.keyboard.Listener(on_press = on_press)
+            listener.start()
+        else:
+            def on_click(x, y, button, pressed):
+                self.selectLabel.configure(text = key_translation.buttonToText[button])
+                return False
+            listener = pynput.mouse.Listener(on_click = on_click)
+            listener.start()
+        
+    #
+    def ShowHidePosition(self, newType):
+        if newType == "Keyboard":
+            self.positionLabel.grid_forget()
+            self.xLabel.grid_forget()
+            self.xEntry.grid_forget()
+            self.yLabel.grid_forget()
+            self.yEntry.grid_forget()
+            self.pickPosButton.grid_forget()
+        else:
+            self.positionLabel.grid(column = 0, row = 4)
+            self.xLabel.grid(column = 1, row = 4)
+            self.xEntry.grid(column = 2, row = 4)
+            self.yLabel.grid(column = 3, row = 4)
+            self.yEntry.grid(column = 4, row = 4)
+            self.pickPosButton.grid(column = 5, row = 4)
+       
     # Add another row without modifying the rest of the recording grid
-    def AddRow(self, info = ("test_type", "test_label", "test_pressed", "test_delay")):
-        (iType, iLabel, iPressed, iDelay) = info
+    def AddRow(self, info = None):
+        if info == None:
+            iType = self.selectedType.get()
+            iLabel = self.selectLabel["text"]
+            iPressed = "Down" if self.pressedValue.get() else "Up"
+            if iType == "Mouse":
+                iPressed = iPressed + " " + str((int(self.xEntry.get()), int(self.yEntry.get())))
+            iDelay = self.delayEntry.get()
+        else:
+            (iType, iLabel, iPressed, iDelay) = info
         numRows = len(self.recordingGrid.get_children())
         self.recordingGrid.insert("", "end", text = "", values = (numRows, iType, iLabel, iPressed, iDelay), tags = ("odd" if numRows % 2 == 0 else "even",))
     

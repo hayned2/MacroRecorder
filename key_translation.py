@@ -126,6 +126,25 @@ textToKey = {
     "scroll_lock": pynput.keyboard.Key.scroll_lock
 }
 
+charFromVK = {
+    96: "num_0",
+    97: "num_1",
+    98: "num_2",
+    99: "num_3",
+    100: "num_4",
+    101: "num_5",
+    102: "num_6",
+    103: "num_7",
+    104: "num_8",
+    105: "num_9",
+    106: "num_*",
+    107: "num_+",
+    108: "num_\\",
+    109: "num_-",
+    110: "num_.",
+    111: "num_/",
+}
+
 buttonToText = {
     pynput.mouse.Button.unknown: "unknown",
     pynput.mouse.Button.left: "left",
@@ -139,3 +158,4 @@ textToButton = {
     "middle": pynput.mouse.Button.middle,
     "right": pynput.mouse.Button.right
 }
+
