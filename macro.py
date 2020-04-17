@@ -267,6 +267,7 @@ class Dialog:
         self.recordingGrid.heading("#5", text = "Delay", anchor = tkinter.CENTER)
         
         self.recordingGrid.bind("<ButtonRelease-1>", self.RowSelected)
+        self.prevSelection = None
         
         self.recordingGrid.grid(column = 1, row = 0)      
         
@@ -345,6 +346,10 @@ class Dialog:
         # Add the add row button, which will add an additional row to the current recording grid
         self.addRowButton = tkinter.Button(self.eventInfo, text = "Add Row", command = self.AddRow)
         self.addRowButton.grid(column = 0, row = 10)
+        
+        # Add the update row button, which will update the selected row with the event info
+        self.updateRowButton = tkinter.Button(self.eventInfo, text = "Update", command = self.UpdateRow)
+        self.updateRowButton.grid(column = 1, row = 10)
 
     # Records mouse and keyboard clicks into the recording object
     def BeginRecording(self):
@@ -452,12 +457,13 @@ class Dialog:
             listener.start()
         else:
             def on_click(x, y, button, pressed):
-                self.selectLabel.configure(text = key_translation.buttonToText[button])
-                self.xEntry.delete(0, "end")
-                self.yEntry.delete(0, "end")
-                self.xEntry.insert(0, x)
-                self.yEntry.insert(0, y)
-                return False
+                if pressed == False:
+                    self.selectLabel.configure(text = key_translation.buttonToText[button])
+                    self.xEntry.delete(0, "end")
+                    self.yEntry.delete(0, "end")
+                    self.xEntry.insert(0, x)
+                    self.yEntry.insert(0, y)
+                    return False
             listener = pynput.mouse.Listener(on_click = on_click)
             listener.start()
         
@@ -479,11 +485,15 @@ class Dialog:
     
     #
     def RowSelected(self, event):
-        print(self.recordingGrid.item(self.recordingGrid.focus()))
-        values = self.recordingGrid.item(self.recordingGrid.focus())["values"]
-        if values == "":
+        if len(self.recordingGrid.selection()) == 0:
+            self.prevSelection = None
             return
-        [index, inputType, label, pressedData, delay] = values
+        [index, inputType, label, pressedData, delay] = self.recordingGrid.item(self.recordingGrid.selection()[0])["values"]
+        if index == self.prevSelection:
+            self.recordingGrid.selection_remove(self.recordingGrid.selection()[0])
+            self.prevSelection = None
+            return
+        self.prevSelection = index
         if self.selectedType.get() != inputType:
             self.selectedType.set(inputType)
             self.ShowHidePosition(inputType)
@@ -498,7 +508,6 @@ class Dialog:
             self.xEntry.insert(0, pressedData[1].replace("(", "").replace(",", ""))
             self.yEntry.insert(0, pressedData[2].replace(")", ""))
         else:
-            print(pressedData)
             self.pressedValue.set(True if pressedData == "Down" else False)
         
     
@@ -535,7 +544,20 @@ class Dialog:
         
         self.recordingGrid.insert("", "end", text = "", values = (numRows, iType, iLabel, iPressed, iDelay), tags = ("odd" if numRows % 2 == 0 else "even",))
         self.recordingGrid.tag_configure("odd", background = "#E8E8E8")
-        self.recordingGrid.tag_configure("even", background = "#DFDFDF")        
+        self.recordingGrid.tag_configure("even", background = "#DFDFDF")
+        
+    def UpdateRow(self):
+        if len(self.recordingGrid.selection()) == 0:
+            tkinter.messagebox.showinfo("Error", "No row is selected to be updated")
+            return
+        newNum = self.recordingGrid.item(self.recordingGrid.selection()[0])["values"][0]
+        newType = self.selectedType.get()
+        newLabel = self.selectLabel["text"]
+        newPressed = "Down" if self.pressedValue.get() else "Up"
+        if newType == "Mouse":
+            newPressed = newPressed + " " + str((int(self.xEntry.get()), int(self.yEntry.get())))
+        newDelay = self.delayEntry.get()        
+        self.recordingGrid.item(self.recordingGrid.selection()[0], values = (newNum, newType, newLabel, newPressed, newDelay))
     
     # Populate the recording grid in the UI with the loaded recording's events
     def RecordingToGrid(self):
