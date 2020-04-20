@@ -350,6 +350,16 @@ class Dialog:
         # Add the update row button, which will update the selected row with the event info
         self.updateRowButton = tkinter.Button(self.eventInfo, text = "Update", command = self.UpdateRow)
         self.updateRowButton.grid(column = 1, row = 10)
+        
+        # Add the delete row button, which will delete the selected row
+        self.deleteRowButton = tkinter.Button(self.eventInfo, text = "Delete", command = self.DeleteRow)
+        self.deleteRowButton.grid(column = 2, row = 10)
+        
+        # Add the up and down buttons, which will let you move a row up and down the list
+        self.upButton = tkinter.Button(self.eventInfo, text = "\u2191", command = self.MoveRowUp)
+        self.downButton = tkinter.Button(self.eventInfo, text = "\u2193", command = self.MoveRowDown)
+        self.upButton.grid(column = 3, row = 10)
+        self.downButton.grid(column = 4, row = 10)
 
     # Records mouse and keyboard clicks into the recording object
     def BeginRecording(self):
@@ -558,6 +568,49 @@ class Dialog:
             newPressed = newPressed + " " + str((int(self.xEntry.get()), int(self.yEntry.get())))
         newDelay = self.delayEntry.get()        
         self.recordingGrid.item(self.recordingGrid.selection()[0], values = (newNum, newType, newLabel, newPressed, newDelay))
+        
+    def DeleteRow(self):
+        if len(self.recordingGrid.selection()) == 0:
+            tkinter.messagebox.showinfo("Error", "No row is selected to be deleted")
+            return
+        deletedNum = self.recordingGrid.item(self.recordingGrid.selection()[0])["values"][0]
+        for row in self.recordingGrid.get_children():
+            values = self.recordingGrid.item(row)["values"]
+            if values[0] > deletedNum:
+                self.recordingGrid.item(row, values = (values[0] - 1, values[1], values[2], values[3], values[4]))
+        self.recordingGrid.delete(self.recordingGrid.selection()[0])
+        
+    def MoveRowUp(self):
+        if len(self.recordingGrid.selection()) == 0:
+            tkinter.messagebox.showinfo("Error", "No row is selected to be moved")
+            return
+        row = self.recordingGrid.selection()[0]
+        rowValues = self.recordingGrid.item(row)["values"]
+        rowValues[0] -= 1
+        prevRow = self.recordingGrid.prev(row)
+        if prevRow == "":
+            return
+        prevRowValues = self.recordingGrid.item(prevRow)["values"]
+        prevRowValues[0] += 1
+        self.recordingGrid.item(row, values = rowValues)
+        self.recordingGrid.item(prevRow, values = prevRowValues)
+        self.recordingGrid.move(row, self.recordingGrid.parent(row), self.recordingGrid.index(row) - 1)
+    
+    def MoveRowDown(self):
+        if len(self.recordingGrid.selection()) == 0:
+            tkinter.messagebox.showinfo("Error", "No row is selected to be moved")
+            return
+        row = self.recordingGrid.selection()[0]
+        rowValues = self.recordingGrid.item(row)["values"]
+        rowValues[0] += 1
+        nextRow = self.recordingGrid.next(row)
+        if nextRow == "":
+            return
+        nextRowValues = self.recordingGrid.item(nextRow)["values"]
+        nextRowValues[0] -= 1
+        self.recordingGrid.item(row, values = rowValues)
+        self.recordingGrid.item(nextRow, values = nextRowValues)
+        self.recordingGrid.move(row, self.recordingGrid.parent(row), self.recordingGrid.index(row) + 1)        
     
     # Populate the recording grid in the UI with the loaded recording's events
     def RecordingToGrid(self):
