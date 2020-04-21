@@ -288,6 +288,13 @@ class Dialog:
         self.playButton = tkinter.Button(self.buttonFrame, text = "Playback", command = self.PlaybackRecording)
         self.playButton.grid(column = 1, row = 0)
         
+        # Add the loops field and label, which specifies how many times to playback the recording
+        self.loopLabel = tkinter.Label(self.buttonFrame, text = "Loops")
+        self.loopLabel.grid(column = 2, row = 0)
+        self.loopEntry = tkinter.Entry(self.buttonFrame, width = 5)
+        self.loopEntry.insert(0, "1")
+        self.loopEntry.grid(column = 3, row = 0)
+        
         # Add the save button, which will save the current recording to a text file
         self.saveButton = tkinter.Button(self.buttonFrame, text = "Save", command = self.SaveRecording)
         self.saveButton.grid(column = 0, row = 1)
@@ -302,7 +309,7 @@ class Dialog:
         
         # Add the event group box
         self.eventInfo = tkinter.LabelFrame(self.buttonFrame, text = "Event Info", padx = 5, pady = 5)
-        self.eventInfo.grid(column = 0, row = 3, columnspan = 2)
+        self.eventInfo.grid(column = 0, row = 3, columnspan = 4)
         
         # Type
         self.selectedType = tkinter.StringVar(self.eventInfo)
@@ -365,7 +372,7 @@ class Dialog:
     def BeginRecording(self):
         print("Beginning recording, press 'q' to stop")
         self.loadedRecording.ClearRecording()
-        
+        self.window.focus()
         pressedMouse = []
         pressedKeys = []
         
@@ -419,8 +426,21 @@ class Dialog:
       
     # Begin playback of the current recording  
     def PlaybackRecording(self):
-        print("Beginning playback of current recording")
-        self.loadedRecording.Playback()
+        self.window.focus()
+        if self.loopEntry.get() == "":
+            loops = 1
+            self.loopEntry.delete(0, "end")
+            self.loopEntry.insert(0, 1)
+        else:
+            try:
+                loops = int(self.loopEntry.get())
+            except:
+                tkinter.messagebox.showinfo("Error", "Loops must be a non-negative integer")
+                return
+        
+        print("Beginning playback of current recording", loops, "time(s)")
+        for x in range(loops):
+            self.loadedRecording.Playback()
         print("Finished playback of current recording")
 
     # Save the current recording to a text file
