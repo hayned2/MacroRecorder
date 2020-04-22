@@ -78,12 +78,26 @@ class Recording:
         return self.events[which]
     
     # Emulate the mouse and keyboard to recreate the recorded events
-    def Playback(self):
+    def Playback(self, hotkey):
+        
+        # Listen on the keyboard for the user to press the cancel button
+        cancel = False
+        def on_press(key):
+            nonlocal cancel
+            if key == hotkey:
+                cancel = True
+                return False
+        listener = pynput.keyboard.Listener(on_press = on_press)
+        listener.start()       
+        
+        # Track the pressed objects, and mock the mouse and keyboard
         pressedKeys = []
         pressedMouse = []
         keyboard = pynput.keyboard.Controller()
         mouse = pynput.mouse.Controller()
         for event in self.GetEvents():
+            if cancel:
+                break
             if type(event) == KeyboardEvent:
                 event.Playback(keyboard)
                 key = event.GetKey()
@@ -99,7 +113,7 @@ class Recording:
                 elif not event.GetButtonPressed() and button in pressedMouse:
                     pressedMouse.remove(button)
                     
-        # Make sure that the mouse and keyboard doesn't leave anything held down
+        # Make sure that the mouse and keyboard don't leave anything held down
         for key in pressedKeys:
             keyboard.release(key)
         for button in pressedMouse:
@@ -252,6 +266,7 @@ class Dialog:
         self.window = tkinter.Tk()
         self.window.title("Do not believe everything you see when you're talking to me, Scam Likely~~")
         
+        # Create the grid to show the events of the recording
         self.recordingGrid = ttk.Treeview(self.window, columns = ("#", "Type", "Label", "Pressed", "Delay"), selectmode = "browse", height = 12)
         self.recordingGrid.column("#0", width = 0, stretch = tkinter.NO)
         self.recordingGrid.column("#1", width = 30, stretch = tkinter.NO, anchor = tkinter.CENTER)
@@ -259,18 +274,19 @@ class Dialog:
         self.recordingGrid.column("#3", width = 100, stretch = tkinter.NO, anchor = tkinter.CENTER)
         self.recordingGrid.column("#4", width = 100, stretch = tkinter.NO, anchor = tkinter.CENTER)
         self.recordingGrid.column("#5", width = 100, stretch = tkinter.NO, anchor = tkinter.CENTER)
-        
         self.recordingGrid.heading("#1", text = "#", anchor = tkinter.CENTER)
         self.recordingGrid.heading("#2", text = "Type", anchor = tkinter.CENTER)
         self.recordingGrid.heading("#3", text = "Label", anchor = tkinter.CENTER)
         self.recordingGrid.heading("#4", text = "Pressed", anchor = tkinter.CENTER)
         self.recordingGrid.heading("#5", text = "Delay", anchor = tkinter.CENTER)
         
+        # When a row in the grid is clicked, update the event info in the UI
         self.recordingGrid.bind("<ButtonRelease-1>", self.RowSelected)
         self.prevSelection = None
         
         self.recordingGrid.grid(column = 1, row = 0)      
         
+        # Add a scrollbar for longer recordings
         self.recordingGridScrollbar = tkinter.Scrollbar(self.window, orient = "vertical", command = self.recordingGrid.yview)
         self.recordingGridScrollbar.configure(command = self.recordingGrid.yview)
         self.recordingGrid.configure(yscrollcommand = self.recordingGridScrollbar.set)
@@ -290,10 +306,21 @@ class Dialog:
         
         # Add the loops field and label, which specifies how many times to playback the recording
         self.loopLabel = tkinter.Label(self.buttonFrame, text = "Loops")
-        self.loopLabel.grid(column = 2, row = 0)
+        self.loopLabel.grid(column = 2, row = 0, columnspan = 1)
         self.loopEntry = tkinter.Entry(self.buttonFrame, width = 5)
         self.loopEntry.insert(0, "1")
-        self.loopEntry.grid(column = 3, row = 0)
+        self.loopEntry.grid(column = 3, row = 0, columnspan = 2)
+        
+        # Start/Stop Hotkey Label
+        self.hotkey = pynput.keyboard.Key.alt_gr
+        self.hotkeyLabel = tkinter.Label(self.buttonFrame, text = "Start/Stop", width = 7)
+        self.hotkeyLabel.grid(column = 2, row = 1)
+        self.hotkeyDisplay = tkinter.Label(self.buttonFrame, text = "alt_r", width = 10)
+        self.hotkeyDisplay.grid(column = 3, row = 1)  
+        
+        # Change Hotkey Button
+        self.changeHotkeyButton = tkinter.Button(self.buttonFrame, text = "Change", command = self.ChangeHotkey, width = 10)
+        self.changeHotkeyButton.grid(column = 2, row = 2, columnspan = 2)        
         
         # Add the save button, which will save the current recording to a text file
         self.saveButton = tkinter.Button(self.buttonFrame, text = "Save", command = self.SaveRecording)
@@ -332,7 +359,7 @@ class Dialog:
         self.yLabel = tkinter.Label(self.eventInfo, text = "Y")
         self.yEntry = tkinter.Entry(self.eventInfo, width = 5)
         self.ShowHidePosition(self.selectedType.get())        
-        
+          
         # Change
         self.selectButton = tkinter.Button(self.eventInfo, text = "Change", command = self.ChangeSelectLabel, width = 10)
         self.selectButton.grid(column = 0, row = 3, columnspan = 5)
@@ -370,9 +397,10 @@ class Dialog:
 
     # Records mouse and keyboard clicks into the recording object
     def BeginRecording(self):
-        print("Beginning recording, press 'q' to stop")
+        print("Beginning recording, press the hotkey to stop")
         self.loadedRecording.ClearRecording()
         self.window.focus()
+        self.window.iconify()
         pressedMouse = []
         pressedKeys = []
         
@@ -394,7 +422,7 @@ class Dialog:
             
         # Function for recording a keyboard event
         def RegisterKeystroke(key, pressed):
-            if type(key) == pynput.keyboard.KeyCode and key.char == 'q':
+            if key == self.hotkey:
                 return False
             self.loadedRecording.AddKeyboardEvent(key, pressed)
             return True
@@ -420,13 +448,17 @@ class Dialog:
             with pynput.keyboard.Listener(on_press = on_press, on_release = on_release) as listener:
                 listener.join()
                 
+        self.window.deiconify()
         self.RecordingToGrid()
                 
         print("Recording has been completed")
       
     # Begin playback of the current recording  
     def PlaybackRecording(self):
+        
         self.window.focus()
+        
+        # Figure out how many times to loop through the recording, defaulting to 1
         if self.loopEntry.get() == "":
             loops = 1
             self.loopEntry.delete(0, "end")
@@ -437,11 +469,13 @@ class Dialog:
             except:
                 tkinter.messagebox.showinfo("Error", "Loops must be a non-negative integer")
                 return
-        
+            
+        self.window.iconify()
         print("Beginning playback of current recording", loops, "time(s)")
         for x in range(loops):
-            self.loadedRecording.Playback()
+            self.loadedRecording.Playback(self.hotkey)
         print("Finished playback of current recording")
+        self.window.deiconify()
 
     # Save the current recording to a text file
     def SaveRecording(self):
@@ -468,6 +502,23 @@ class Dialog:
         file.close()
         self.RecordingToGrid()
         print("Successfully loaded recording", filename)
+        
+    #
+    def ChangeHotkey(self):
+        self.hotkeyDisplay.configure(text = "Listening...")
+        self.window.focus()
+        def on_press(key):
+            if type(key) == pynput.keyboard.Key:
+                self.hotkeyDisplay.configure(text = key_translation.keyToText[key])
+            else:
+                if key.vk >= 96 and key.vk <= 111:
+                    self.hotkeyDisplay.configure(text = key_translation.charFromVK[key.vk])
+                else:
+                    self.hotkeyDisplay.configure(text = key.char)
+            self.hotkey = key
+            return False
+        listener = pynput.keyboard.Listener(on_press = on_press)
+        listener.start()
         
     # Record the next mouse / keyboard event when the user wants to edit an event
     def ChangeSelectLabel(self):
