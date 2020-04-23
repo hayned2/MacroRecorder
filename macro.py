@@ -31,7 +31,16 @@ class Recording:
         if len(parameters) == 5:
             self.AddMouseEventFromText(parameters)
         else:
-            self.AddKeyboardEventFromText(parameters)    
+            self.AddKeyboardEventFromText(parameters)
+            
+    def AddEventFromGrid(self, values):
+        if values[1] == "Keyboard":
+            pressed = "True" if values[3] == "Down" else "False"
+            self.AddKeyboardEventFromText([values[4], values[2], pressed])
+        else:
+            pressedData = values[3].split(" ")
+            pressed = "True" if pressedData[0] == "Down" else "False"
+            self.AddMouseEventFromText([values[4], values[2], pressed, pressedData[1].replace("(", "").replace(",", ""), pressedData[2].replace(")", "")])
     
     # Used when adding a keyboard event. delayTime is only provided if adding from text
     def AddKeyboardEvent(self, key, pressed, delayTime = None):
@@ -320,7 +329,7 @@ class Dialog:
         
         # Change Hotkey Button
         self.changeHotkeyButton = tkinter.Button(self.buttonFrame, text = "Change", command = self.ChangeHotkey, width = 10)
-        self.changeHotkeyButton.grid(column = 2, row = 2, columnspan = 2)        
+        self.changeHotkeyButton.grid(column = 2, row = 2, columnspan = 2)
         
         # Add the save button, which will save the current recording to a text file
         self.saveButton = tkinter.Button(self.buttonFrame, text = "Save", command = self.SaveRecording)
@@ -336,7 +345,7 @@ class Dialog:
         
         # Add the event group box
         self.eventInfo = tkinter.LabelFrame(self.buttonFrame, text = "Event Info", padx = 5, pady = 5)
-        self.eventInfo.grid(column = 0, row = 3, columnspan = 4)
+        self.eventInfo.grid(column = 0, row = 4, columnspan = 4)
         
         # Type
         self.selectedType = tkinter.StringVar(self.eventInfo)
@@ -456,6 +465,7 @@ class Dialog:
     # Begin playback of the current recording  
     def PlaybackRecording(self):
         
+        self.GridToRecording()
         self.window.focus()
         
         # Figure out how many times to loop through the recording, defaulting to 1
@@ -479,10 +489,13 @@ class Dialog:
 
     # Save the current recording to a text file
     def SaveRecording(self):
+        self.GridToRecording()
         if len(self.loadedRecording.GetEvents()) == 0:
             print("Nothing to save")
             return
         filename = filedialog.asksaveasfilename(filetypes = [("MacroRecorder files", "*" + fileExtension)])
+        if not filename.endswith(fileExtension):
+            filename += fileExtension
         file = open(filename, "w")
         for event in self.loadedRecording.GetEvents():
             file.write(event.GetFileText())
@@ -694,6 +707,13 @@ class Dialog:
                 self.AddRow(("Mouse", event.GetButtonLabel(), ("Down " if event.GetButtonPressed() else "Up ") + str(event.GetPosition()), round(event.GetDelayTime(), 5)))
         self.recordingGrid.tag_configure("odd", background = "#E8E8E8")
         self.recordingGrid.tag_configure("even", background = "#DFDFDF")
+        
+    def GridToRecording(self):
+        self.loadedRecording.ClearRecording()
+        for row in self.recordingGrid.get_children():
+            self.loadedRecording.AddEventFromGrid(self.recordingGrid.item(row)["values"])
+            
+        
     
     # Clear the current recording
     def ClearRecording(self):
