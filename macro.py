@@ -43,45 +43,47 @@ class Recording:
             self.AddMouseEventFromText([values[5], values[2], values[3], position[0], position[1], position[2], position[3]])
     
     # Used when adding a keyboard event. delayTime is only provided if adding from text
-    def AddKeyboardEvent(self, key, pressed, delayTime = None):
+    def AddKeyboardEvent(self, key, pressed, delayTime = None, delayTime2 = None):
         eventTime = time.time()
         if delayTime == None:
             delayTime = eventTime - self.lastEventTime
+            delayTime2 = delayTime
         self.lastEventTime = eventTime
-        event = KeyboardEvent(delayTime, key, pressed)
+        event = KeyboardEvent(delayTime, delayTime2, key, pressed)
         self.events.append(event)
     
     # Used when adding a keyboard event from text
     def AddKeyboardEventFromText(self, params):
         [delay, key, pressed] = params
-        delay = float(delay)
+        [delayTime, delayTime2] = [float(t) for t in delay.split("-")]
         key = key_translation.textToKey[key] if key in key_translation.textToKey else pynput.keyboard.KeyCode.from_char(key)
         pressed = True if pressed == "True" else False
-        self.AddKeyboardEvent(key, pressed, delay)
+        self.AddKeyboardEvent(key, pressed, delayTime, delayTime2)
         
     # Used when adding a mouse event. delayTime is only provided if adding from text
-    def AddMouseEvent(self, button, pressed, x, y, x2 = None, y2 = None, delayTime = None):
+    def AddMouseEvent(self, button, pressed, x, y, x2 = None, y2 = None, delayTime = None, delayTime2 = None):
         eventTime = time.time()
         if delayTime == None:
             delayTime = eventTime - self.lastEventTime
+            delayTime2 = delayTime
         if x2 == None or y2 == None:
             x2 = x
             y2 = y
         self.lastEventTime = eventTime
-        event = MouseEvent(delayTime, button, pressed, x, y, x2, y2)
+        event = MouseEvent(delayTime, delayTime2, button, pressed, x, y, x2, y2)
         self.events.append(event)
         
     # Used when adding a keyboard event from text
     def AddMouseEventFromText(self, params):
         [delay, button, pressed, x, y, x2, y2] = params
-        delay = float(delay)
+        [delayTime, delayTime2] = [float(t) for t in delay.split("-")]
         button = key_translation.textToButton[button]
         pressed = True if pressed == "True" else False
         x = int(x)
         y = int(y)
         x2 = int(x2)
         y2 = int(y2)
-        self.AddMouseEvent(button, pressed, x, y, x2, y2, delay)
+        self.AddMouseEvent(button, pressed, x, y, x2, y2, delayTime, delayTime2)
       
     # Return the list of events  
     def GetEvents(self):
@@ -144,18 +146,26 @@ class Recording:
 class KeyboardEvent:
     
     delayTime = 0
+    delayTime2 = 0
     key = None
     pressed = False
     
     # Initialize the keyboard event with a delayTime, which key, and whether it was pressed or released
-    def __init__(self, delayTime, key, pressed):
+    def __init__(self, delayTime, delayTime2, key, pressed):
         self.delayTime = delayTime
+        self.delayTime2 = delayTime2
         self.key = key
         self.pressed = pressed
         
     # Return the delayTime
     def GetDelayTime(self):
         return self.delayTime
+    
+    def GetDelayTime2(self):
+        return self.delayTime2
+    
+    def GetDelayRange(self):
+        return self.delayTime2 - self.delayTime
     
     # Return the key
     def GetKey(self):
@@ -176,7 +186,7 @@ class KeyboardEvent:
     
     # Given a virtual keyboard, replay the keyboard event
     def Playback(self, keyboard):
-        time.sleep(self.GetDelayTime())
+        time.sleep(self.GetDelayTime()) + random.uniform(0, self.GetDelayRange())
         if self.GetKeyPressed():
             keyboard.press(self.GetKey())
         else:
@@ -184,24 +194,26 @@ class KeyboardEvent:
            
     # Turn the event into text for saving to a file 
     def GetFileText(self):
-        return " ".join([str(self.GetDelayTime()), self.GetKeyLabel(), str(self.GetKeyPressed())]) + "\n" 
+        return " ".join([str(self.GetDelayTime()) + "-" + str(self.GetDelayTime2()), self.GetKeyLabel(), str(self.GetKeyPressed())]) + "\n" 
     
     # Print the contents of the event
     def PrintEvent(self):
-        print("Delay Time:", self.GetDelayTime())
+        print("Delay Time:", self.GetDelayTime(), "-", self.GetDelayTime2())
         print("Key:", self.GetKeyLabel())
         print("Pressed:", self.GetKeyPressed())
     
 class MouseEvent:
     
     delayTime = 0
+    delayTime2 = 0
     button = None
     pressed = False
     position = (0, 0, 0, 0)
     
     # Initialize the mouse event with a delayTime, which button, whether it was pressed or released, and the position
-    def __init__(self, delayTime, button, pressed, x, y, x2, y2):
+    def __init__(self, delayTime, delayTime2, button, pressed, x, y, x2, y2):
         self.delayTime = delayTime
+        self.delayTime2 = delayTime2
         self.button = button
         self.pressed = pressed
         self.position = (x, y, x2, y2)
@@ -209,6 +221,12 @@ class MouseEvent:
     # Return the delay time
     def GetDelayTime(self):
         return self.delayTime
+    
+    def GetDelayTime2(self):
+        return self.delayTime2
+    
+    def GetDelayRange(self):
+        return self.delayTime2 - self.delayTime
     
     # Return which button
     def GetButton(self):
@@ -248,7 +266,7 @@ class MouseEvent:
         else:
             destinationY = fullPosition[1]
             
-        intDelay = self.GetDelayTime() / movementFraction
+        intDelay = (self.GetDelayTime() + random.uniform(0, self.GetDelayRange())) / movementFraction
         dx = (destinationX - startingX) / movementFraction
         dy = (destinationY - startingY) / movementFraction
 
@@ -264,11 +282,11 @@ class MouseEvent:
             
     # Turn the event into text for saving to a file
     def GetFileText(self):
-        return " ".join([str(self.GetDelayTime()), self.GetButtonLabel(), str(self.GetButtonPressed()), " ".join(str(coord) for coord in self.GetFullPosition()) + "\n"])
+        return " ".join([str(self.GetDelayTime()) + "-" + str(self.GetDelayTime2()), self.GetButtonLabel(), str(self.GetButtonPressed()), " ".join(str(coord) for coord in self.GetFullPosition()) + "\n"])
     
     # Print the contents of the event
     def PrintEvent(self):
-        print("Delay Time:", self.GetDelayTime())
+        print("Delay Time:", self.GetDelayTime(), "-", self.GetDelayTime2())
         print("Button:", self.GetButtonLabel())
         print("Pressed:", self.GetButtonPressed())
         print("Position:", self.GetFullPosition())
@@ -417,8 +435,12 @@ class Dialog:
         # Delay
         self.delayLabel = tkinter.Label(self.eventInfo, text = "Delay")
         self.delayLabel.grid(column = 0, row = 6)
-        self.delayEntry = tkinter.Entry(self.eventInfo, width = 16)
-        self.delayEntry.grid(column = 1, row = 6, columnspan = 4)
+        self.delayEntry = tkinter.Entry(self.eventInfo, width = 8)
+        self.delayEntry.grid(column = 1, row = 6, columnspan = 1)
+        self.dashLabel = tkinter.Label(self.eventInfo, text = "-")
+        self.dashLabel.grid(column = 2, row = 6)
+        self.delayEntry2 = tkinter.Entry(self.eventInfo, width = 8)
+        self.delayEntry2.grid(column = 3, row = 6, columnspan = 2)
         
         # Add the add row button, which will add an additional row to the current recording grid
         self.addRowButton = tkinter.Button(self.eventInfo, text = "Add Row", command = self.AddRow)
@@ -656,8 +678,11 @@ class Dialog:
             self.selectedType.set(inputType)
             self.ShowHidePosition()
         self.selectLabel.configure(text = label)
+        [delayTime, delayTime2] = delay.split("-")
         self.delayEntry.delete(0, "end")
-        self.delayEntry.insert(0, delay)
+        self.delayEntry.insert(0, delayTime)
+        self.delayEntry2.delete(0, "end")
+        self.delayEntry2.insert(0, delayTime2)
         self.pressedValue.set(True if pressedData == "True" else False)
         if inputType == "Mouse":
             position = literal_eval(position)
@@ -680,7 +705,9 @@ class Dialog:
                 iPosition = str((int(self.xEntry.get()), int(self.yEntry.get()), int(self.x2Entry.get()), int(self.y2Entry.get())))
             else:
                 iPosition = "N/A"
-            iDelay = self.delayEntry.get()
+            if self.delayEntry2.get() == "":
+                self.delayEntry2.insert(0, self.delayEntry.get())
+            iDelay = self.delayEntry.get() + "-" + self.delayEntry2.get()
         else:
             (iType, iLabel, iPressed, iPosition, iDelay) = info
         numRows = len(self.recordingGrid.get_children())
@@ -691,8 +718,8 @@ class Dialog:
             return
         error = False
         try:
-            iDelay = float(iDelay)
-            if iDelay < 0:
+            [delayTime, delayTime2] = [float(t) for t in iDelay.split("-")]
+            if delayTime < 0 or delayTime2 < 0:
                 error = True
         except:
             error = True
@@ -719,7 +746,9 @@ class Dialog:
             newPosition = str((int(self.xEntry.get()), int(self.yEntry.get()), int(self.x2Entry.get()), int(self.y2Entry.get())))
         else:
             newPosition = "N/A"
-        newDelay = self.delayEntry.get()        
+        if self.delayEntry2.get() == "":
+            self.delayEntry2.insert(0, self.delayEntry.get())
+        newDelay = self.delayEntry.get() + "-" + self.delayEntry2.get()     
         self.recordingGrid.item(self.recordingGrid.selection()[0], values = (newNum, newType, newLabel, newPressed, newPosition, newDelay))
         
     def DeleteRow(self):
@@ -771,9 +800,9 @@ class Dialog:
         for x in range(len(self.loadedRecording.GetEvents())):
             event = self.loadedRecording.GetEvent(x)
             if type(event) == KeyboardEvent:
-                self.AddRow(("Keyboard", event.GetKeyLabel(), "True" if event.GetKeyPressed() else "False", "N/A", round(event.GetDelayTime(), 5)))
+                self.AddRow(("Keyboard", event.GetKeyLabel(), "True" if event.GetKeyPressed() else "False", "N/A", str(round(event.GetDelayTime(), 5)) + "-" + str(round(event.GetDelayTime2(), 5))))
             else:
-                self.AddRow(("Mouse", event.GetButtonLabel(), "True" if event.GetButtonPressed() else "False", str(event.GetFullPosition()), round(event.GetDelayTime(), 5)))
+                self.AddRow(("Mouse", event.GetButtonLabel(), "True" if event.GetButtonPressed() else "False", str(event.GetFullPosition()), str(round(event.GetDelayTime(), 5)) + "-" + str(round(event.GetDelayTime2(), 5))))
         self.recordingGrid.tag_configure("odd", background = "#E8E8E8")
         self.recordingGrid.tag_configure("even", background = "#DFDFDF")
         
@@ -786,7 +815,6 @@ class Dialog:
     def ClearRecording(self):
         for row in self.recordingGrid.get_children():
             self.recordingGrid.delete(row)
-
 
 if __name__ == "__main__":
     
