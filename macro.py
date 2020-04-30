@@ -327,7 +327,7 @@ class Dialog:
         
         # Create the main dialog window
         self.window = tkinter.Tk()
-        self.window.title("Do not believe everything you see when you're talking to me, Scam Likely~~")
+        self.window.title("Macro Recorder by Dan H. (hayned2)")
         
         # Create the grid to show the events of the recording
         self.recordingGrid = ttk.Treeview(self.window, columns = ("#", "Type", "Label", "Pressed", "Area", "Delay"), selectmode = "browse", height = 15)
@@ -378,7 +378,7 @@ class Dialog:
         
         # Start/Stop Hotkey Label
         self.hotkey = pynput.keyboard.Key.alt_gr
-        self.hotkeyLabel = tkinter.Label(self.buttonFrame, text = "Start/Stop", width = 7)
+        self.hotkeyLabel = tkinter.Label(self.buttonFrame, text = "Stop", width = 7)
         self.hotkeyLabel.grid(column = 2, row = 1)
         self.hotkeyDisplay = tkinter.Label(self.buttonFrame, text = "alt_r", width = 10)
         self.hotkeyDisplay.grid(column = 3, row = 1)  
