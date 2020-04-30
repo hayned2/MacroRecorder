@@ -6,7 +6,7 @@ A recorder that will record the user's mouse and keyboard strokes for a time, th
 
 To run the actual code, Python 3.0 is required, along with the packages [ctypes, pynput, tkinter, ast]
 
-A windows installer has been included in the *dist* directory, which does not require Python to run.
+A windows executable has been included in the *dist* directory, which does not require Python to run.
 
 ### How to Use
 
