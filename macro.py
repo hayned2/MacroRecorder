@@ -1,5 +1,6 @@
 import ctypes
 import time
+import math
 import os
 import pynput
 import random
@@ -12,7 +13,7 @@ from tkinter import messagebox
 import key_translation
 
 PROCESS_PER_MONITOR_DPI_AWARE = 2
-movementFraction = 100.0
+movementFraction = 1000.0
 fileExtension = ".mr"
 
 class Recording:
@@ -247,6 +248,13 @@ class MouseEvent:
     def GetButtonLabel(self):
         return key_translation.buttonToText[self.button]
     
+    def MouseMovement(self, x, allowance):
+        if x == 0:
+            return 0
+        sigma = 3
+        fraction = 1 / (1 + ((x / (1 - x)) ** (-1 * sigma)))
+        return fraction * allowance
+    
     # Given a virtual mouse, replay the mouse event
     def Playback(self, mouse):
         (startingX, startingY) = mouse.position
@@ -266,13 +274,16 @@ class MouseEvent:
         else:
             destinationY = fullPosition[1]
             
-        intDelay = (self.GetDelayTime() + random.uniform(0, self.GetDelayRange())) / movementFraction
-        dx = (destinationX - startingX) / movementFraction
-        dy = (destinationY - startingY) / movementFraction
-
+        totalDelay = self.GetDelayTime() + random.uniform(0, self.GetDelayRange())
+        intDelay = (totalDelay) / movementFraction
+        xDist = destinationX - startingX
+        yDist = destinationY - startingY
+        
         for interval in range(int(movementFraction)):
             time.sleep(intDelay)
-            mouse.position = (startingX + (dx * interval), startingY + (dy * interval))
+            mouseX = startingX + self.MouseMovement(interval / movementFraction, xDist)
+            mouseY = startingY + self.MouseMovement(interval / movementFraction, yDist)
+            mouse.position = (mouseX, mouseY)
             
         mouse.position = (destinationX, destinationY)
         if self.GetButtonPressed():
