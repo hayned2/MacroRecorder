@@ -6,6 +6,7 @@ import pynput
 import random
 import tkinter
 from ast import literal_eval
+from ctypes import windll
 from tkinter import ttk
 from tkinter import filedialog
 from tkinter import messagebox
@@ -13,8 +14,10 @@ from tkinter import messagebox
 import key_translation
 
 PROCESS_PER_MONITOR_DPI_AWARE = 2
-movementFraction = 1000.0
+movementFraction = 100.0
 fileExtension = ".mr"
+timeBeginPeriod = windll.winmm.timeBeginPeriod
+timeBeginPeriod(1)
 
 class Recording:
     
@@ -187,7 +190,7 @@ class KeyboardEvent:
     
     # Given a virtual keyboard, replay the keyboard event
     def Playback(self, keyboard):
-        time.sleep(self.GetDelayTime()) + random.uniform(0, self.GetDelayRange())
+        time.sleep(self.GetDelayTime() + random.uniform(0, self.GetDelayRange()))
         if self.GetKeyPressed():
             keyboard.press(self.GetKey())
         else:
@@ -279,11 +282,13 @@ class MouseEvent:
         xDist = destinationX - startingX
         yDist = destinationY - startingY
         
+        startTime2 = time.time()
         for interval in range(int(movementFraction)):
-            time.sleep(intDelay)
+            startTime = time.time()
             mouseX = startingX + self.MouseMovement(interval / movementFraction, xDist)
             mouseY = startingY + self.MouseMovement(interval / movementFraction, yDist)
             mouse.position = (mouseX, mouseY)
+            time.sleep(max(0, intDelay - (time.time() - startTime)))
             
         mouse.position = (destinationX, destinationY)
         if self.GetButtonPressed():
