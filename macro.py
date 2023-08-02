@@ -1,7 +1,6 @@
 import ctypes
-import time
 import math
-import os
+import time
 import pynput
 import random
 import tkinter
@@ -9,7 +8,6 @@ from ast import literal_eval
 from ctypes import windll
 from tkinter import ttk
 from tkinter import filedialog
-from tkinter import messagebox
 
 import key_translation
 
@@ -25,6 +23,7 @@ class Recording:
     def __init__(self):
         self.events = []
         self.lastEventTime = time.time()
+        self.canceled = False
         
     # Reset the recording back to no events
     def ClearRecording(self):
@@ -97,6 +96,12 @@ class Recording:
     def GetEvent(self, which):
         return self.events[which]
     
+    def GetCanceled(self):
+        return self.canceled
+    
+    def SetCanceled(self, value):
+        self.canceled = value
+    
     # Emulate the mouse and keyboard to recreate the recorded events
     def Playback(self, hotkey):
         
@@ -117,6 +122,7 @@ class Recording:
         mouse = pynput.mouse.Controller()
         for event in self.GetEvents():
             if cancel:
+                self.SetCanceled(True)
                 break
             if type(event) == KeyboardEvent:
                 event.Playback(keyboard)
@@ -126,6 +132,7 @@ class Recording:
                 elif not event.GetKeyPressed() and key in pressedKeys:
                     pressedKeys.remove(key)
             else:
+                event.SetHotKey(hotkey)
                 event.Playback(mouse)
                 button = event.GetButton()
                 if event.GetButtonPressed() and button not in pressedMouse:
@@ -213,6 +220,8 @@ class MouseEvent:
     button = None
     pressed = False
     position = (0, 0, 0, 0)
+    hotkey = None
+    cancelled = False
     
     # Initialize the mouse event with a delayTime, which button, whether it was pressed or released, and the position
     def __init__(self, delayTime, delayTime2, button, pressed, x, y, x2, y2):
@@ -250,6 +259,9 @@ class MouseEvent:
     # Return the text label for the button
     def GetButtonLabel(self):
         return key_translation.buttonToText[self.button]
+
+    def SetHotKey(self, hotkey):
+        self.hotkey = hotkey
     
     def MouseMovement(self, x, allowance):
         if x == 0:
@@ -260,6 +272,12 @@ class MouseEvent:
     
     # Given a virtual mouse, replay the mouse event
     def Playback(self, mouse):
+        if self.hotkey:
+            def on_press(key):
+                if key == self.hotkey:
+                    self.cancelled = True
+            listener = pynput.keyboard.Listener(on_press = on_press)
+            listener.start()      
         (startingX, startingY) = mouse.position
         fullPosition = self.GetFullPosition()
         if fullPosition[0] != fullPosition[2]:
@@ -289,9 +307,11 @@ class MouseEvent:
             mouseY = startingY + self.MouseMovement(interval / movementFraction, yDist)
             mouse.position = (mouseX, mouseY)
             time.sleep(max(0, intDelay - (time.time() - startTime)))
+            if self.cancelled:
+                break
             
         mouse.position = (destinationX, destinationY)
-        if self.GetButtonPressed():
+        if self.GetButtonPressed() and not self.cancelled:
             mouse.press(self.GetButton())
         else:
             mouse.release(self.GetButton())
@@ -308,21 +328,6 @@ class MouseEvent:
         print("Position:", self.GetFullPosition())
 
 class Dialog:
-    
-    # self.loadedRecording = macro.Recording
-    # self.window = tkinter.TK
-    # self.gridContainer = tkinter.Frame
-    # self.gridCanvas = tkinter.Canvas
-    # self.gridScrollbar = tkinter.Scrollbar
-    # self.gridScrollableFrame = tkinter.Frame
-    # self.recordingGrid = [][]tkinter.Entry
-    # self.recordingGridLabels = []tkinter.Label
-    # self.buttonFrame = tkinter.Frame
-    # self.recordButton = tkinter.Button
-    # self.playButton = tkinter.Button
-    # self.saveButton = tkinter.Button
-    # self.loadButton = tkinter.Button
-    # self.clearButton = tkinter.Button
     
     # Initialize the dialog
     def __init__(self):
@@ -365,48 +370,52 @@ class Dialog:
         # Add a frame to hold the main buttons
         self.buttonFrame = tkinter.Frame(self.window, width = 500, height = 500)
         self.buttonFrame.grid(column = 0, row = 0)
+
+        # Add a frame for the recording buttons
+        self.recordingFrame = tkinter.LabelFrame(self.buttonFrame, text = "Recording", padx = 5, pady = 5)
+        self.recordingFrame.grid(column = 0, row = 0)
         
         # Add the record button, which will begin a recording
-        self.recordButton = tkinter.Button(self.buttonFrame, text = "Record", command = self.BeginRecording)
+        self.recordButton = tkinter.Button(self.recordingFrame, text = "Record", command = self.BeginRecording)
         self.recordButton.grid(column = 0, row = 0)
         
         # Add the playback button, which will replay the current recording
-        self.playButton = tkinter.Button(self.buttonFrame, text = "Playback", command = self.PlaybackRecording)
+        self.playButton = tkinter.Button(self.recordingFrame, text = "Playback", command = self.PlaybackRecording)
         self.playButton.grid(column = 1, row = 0)
         
         # Add the loops field and label, which specifies how many times to playback the recording
-        self.loopLabel = tkinter.Label(self.buttonFrame, text = "Loops")
+        self.loopLabel = tkinter.Label(self.recordingFrame, text = "Loops")
         self.loopLabel.grid(column = 2, row = 0, columnspan = 1)
-        self.loopEntry = tkinter.Entry(self.buttonFrame, width = 5)
+        self.loopEntry = tkinter.Entry(self.recordingFrame, width = 5)
         self.loopEntry.insert(0, "1")
         self.loopEntry.grid(column = 3, row = 0, columnspan = 2)
         
         # Start/Stop Hotkey Label
         self.hotkey = pynput.keyboard.Key.alt_gr
-        self.hotkeyLabel = tkinter.Label(self.buttonFrame, text = "Stop", width = 7)
+        self.hotkeyLabel = tkinter.Label(self.recordingFrame, text = "Stop", width = 7)
         self.hotkeyLabel.grid(column = 2, row = 1)
-        self.hotkeyDisplay = tkinter.Label(self.buttonFrame, text = "alt_r", width = 10)
+        self.hotkeyDisplay = tkinter.Label(self.recordingFrame, text = "alt_r", width = 10)
         self.hotkeyDisplay.grid(column = 3, row = 1)  
         
         # Change Hotkey Button
-        self.changeHotkeyButton = tkinter.Button(self.buttonFrame, text = "Change", command = self.ChangeHotkey, width = 10)
+        self.changeHotkeyButton = tkinter.Button(self.recordingFrame, text = "Change", command = self.ChangeHotkey, width = 10)
         self.changeHotkeyButton.grid(column = 2, row = 2, columnspan = 2)
         
         # Add the save button, which will save the current recording to a text file
-        self.saveButton = tkinter.Button(self.buttonFrame, text = "Save", command = self.SaveRecording)
+        self.saveButton = tkinter.Button(self.recordingFrame, text = "Save", command = self.SaveRecording)
         self.saveButton.grid(column = 0, row = 1)
         
         # Add the load button, which will read a text file into the loaded recording
-        self.loadButton = tkinter.Button(self.buttonFrame, text = "Load", command = self.LoadRecording)
+        self.loadButton = tkinter.Button(self.recordingFrame, text = "Load", command = self.LoadRecording)
         self.loadButton.grid(column = 1, row = 1)
         
         # Add the clear button, which will clear the current recording
-        self.clearButton = tkinter.Button(self.buttonFrame, text = "Clear", command = self.ClearRecording)
+        self.clearButton = tkinter.Button(self.recordingFrame, text = "Clear", command = self.ClearRecording)
         self.clearButton.grid(column = 0, row = 2)
         
         # Add the event group box
         self.eventInfo = tkinter.LabelFrame(self.buttonFrame, text = "Event Info", padx = 5, pady = 5)
-        self.eventInfo.grid(column = 0, row = 4, columnspan = 4)
+        self.eventInfo.grid(column = 0, row = 1)
         
         # Type
         self.selectedType = tkinter.StringVar(self.eventInfo)
@@ -476,6 +485,36 @@ class Dialog:
         self.upButton.grid(column = 3, row = 10)
         self.downButton.grid(column = 4, row = 10)
 
+        # Add a frame for variance
+        self.varianceFrame = tkinter.LabelFrame(self.buttonFrame, text = "Variance", padx = 5, pady = 5)
+        self.varianceFrame.grid(column = 0, row = 3)
+        #self.varianceFrame.grid_columnconfigure(2, minsize = 100)
+        
+        # Delay Variance Button
+        self.delayVarianceButton = tkinter.Button(self.varianceFrame, text = 'Delay Variance', command = self.VaryDelay)
+        self.delayVarianceButton.grid(column = 0, row = 0)
+        self.delayVarianceEntry = tkinter.Entry(self.varianceFrame, width = 8)
+        self.delayVarianceEntry.grid(column = 1, row = 0, columnspan = 4)
+        self.delayVarianceTypeLabel = tkinter.Label(self.varianceFrame, text = 'Delay Type')
+        self.delayVarianceTypeLabel.grid(column = 0, row = 1)
+        self.delayVarianceType = tkinter.StringVar(self.varianceFrame, 'percent')
+        self.delayVarianceTypePercentRadioButton = tkinter.Radiobutton(self.varianceFrame, text = 'Percent', variable = self.delayVarianceType, value = 'percent')
+        self.delayVarianceTypePercentRadioButton.grid(column = 1, row = 1)
+        self.delayVarianceTypeSecondsRadioButton = tkinter.Radiobutton(self.varianceFrame, text = 'Seconds', variable = self.delayVarianceType, value = 'seconds')
+        self.delayVarianceTypeSecondsRadioButton.grid(column = 2, row = 1)
+
+        # Position Variance Button
+        self.positionVarianceButton = tkinter.Button(self.varianceFrame, text = 'Position Variance', command = self.VaryPosition)
+        self.positionVarianceButton.grid(column = 0, row = 2)
+        self.positionVarianceXLabel = tkinter.Label(self.varianceFrame, text = 'X:')
+        self.positionVarianceXLabel.grid(column = 1, row = 2)
+        self.positionVarianceXEntry = tkinter.Entry(self.varianceFrame, width = 8)
+        self.positionVarianceXEntry.grid(column = 2, row = 2)
+        self.positionVarianceYLabel = tkinter.Label(self.varianceFrame, text = 'Y:')
+        self.positionVarianceYLabel.grid(column = 3, row = 2)
+        self.positionVarianceYEntry = tkinter.Entry(self.varianceFrame, width = 8)
+        self.positionVarianceYEntry.grid(column = 4, row = 2)
+
     # Records mouse and keyboard clicks into the recording object
     def BeginRecording(self):
         print("Beginning recording, press the hotkey to stop")
@@ -490,6 +529,7 @@ class Dialog:
             nonlocal pressedKeys
             if key in pressedKeys:
                 return True
+            key = Normalize(key)
             pressedKeys.append(key)
             return RegisterKeystroke(key, True)
             
@@ -507,6 +547,13 @@ class Dialog:
                 return False
             self.loadedRecording.AddKeyboardEvent(key, pressed)
             return True
+        
+        # When a modifier is pressed with a key, it might cause a weird KeyCode (i.e. ctrl + A = '\x01')
+        # We want to be saving it as 'A' instead
+        def Normalize(key):
+            if str(key)[1] == '\\':
+                key = key_translation.normalize[str(key)]
+            return key
         
         # Function for recording a mouse button click
         def on_click(x, y, button, pressed):
@@ -555,6 +602,9 @@ class Dialog:
         print("Beginning playback of current recording", loops, "time(s)")
         for x in range(loops):
             self.loadedRecording.Playback(self.hotkey)
+            if self.loadedRecording.GetCanceled():
+                self.loadedRecording.SetCanceled(False)
+                break
         print("Finished playback of current recording")
         self.window.deiconify()
 
@@ -808,8 +858,50 @@ class Dialog:
         nextRowValues[0] -= 1
         self.recordingGrid.item(row, values = rowValues)
         self.recordingGrid.item(nextRow, values = nextRowValues)
-        self.recordingGrid.move(row, self.recordingGrid.parent(row), self.recordingGrid.index(row) + 1)        
-    
+        self.recordingGrid.move(row, self.recordingGrid.parent(row), self.recordingGrid.index(row) + 1)
+
+    def VaryDelay(self):
+        if (self.delayVarianceEntry.get().isspace()):
+            return
+        try:
+            variance = float(self.delayVarianceEntry.get())
+        except ValueError:
+            return
+        if variance < 0:
+            return
+        for row in self.recordingGrid.get_children():
+            values = self.recordingGrid.item(row)["values"]
+            currentDelay = float(values[5].split('-')[0])
+            newDelay = currentDelay + variance if self.delayVarianceType.get() == 'seconds' else currentDelay + (currentDelay * (variance / 100))
+            values[5] = '{}-{}'.format(currentDelay, round(newDelay, 5))
+            self.recordingGrid.item(row, values = values)
+
+    def VaryPosition(self):
+        if (self.positionVarianceXEntry.get().isspace() or self.positionVarianceYEntry.get().isspace()):
+            return
+        try:
+            float(self.positionVarianceXEntry.get())
+            float(self.positionVarianceYEntry.get())
+        except ValueError:
+            return
+        xVariance = float(self.positionVarianceXEntry.get())
+        yVariance = float(self.positionVarianceYEntry.get())
+        xOddHandler = 0 if xVariance % 2 == 0 else 1
+        yOddHandler = 0 if yVariance % 2 == 0 else 1
+        xVariance = int(xVariance // 2)
+        yVariance = int(yVariance // 2)
+        for row in self.recordingGrid.get_children():
+            values = self.recordingGrid.item(row)["values"]
+            if values[1] == 'Mouse':
+                positions = [int(val) for val in values[4][1:-1].split(', ')]
+                currentXAverage = int((positions[0] + positions[2]) // 2)
+                currentYAverage = int((positions[1] + positions[3]) // 2)
+                values[4] = '({}, {}, {}, {})'.format(max(0, currentXAverage - xVariance), 
+                                                      max(0, currentYAverage - yVariance), 
+                                                      min(currentXAverage + xVariance + xOddHandler, self.window.winfo_screenwidth()), 
+                                                      min(currentYAverage + yVariance + yOddHandler, self.window.winfo_screenheight()))
+                self.recordingGrid.item(row, values = values)
+
     # Populate the recording grid in the UI with the loaded recording's events
     def RecordingToGrid(self):
         self.ClearRecording()
